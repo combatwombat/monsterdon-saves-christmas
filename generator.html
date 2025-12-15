@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto 50px auto;
+            padding: 20px;
+            /* gradient background, grey to black */
+            background: linear-gradient(180deg, #222 0%, #333 100%);
+        }
+        canvas {
+            display: block;
+            margin-bottom: 20px;
+            max-width: 100%;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, select, button {
+            padding: 20px 15px;
+            font-size: 20px;
+        }
+        input {
+            color: #fefefe;
+            background: #000;
+            border: none;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="controls">
+        <input type="number" id="amountInput" placeholder="Enter amount" value="1234">
+        <select id="templateSelect" class="hidden"></select>
+        <button id="saveButton">Save as JPEG</button>
+    </div>
+
+    <script>
+        // Template configuration
+        const templates = [
+            {
+                id: 'template-1',
+                name: 'Template 1',
+                image: 'img/template-1.png',
+                font: 'fonts/Roboto-Black.ttf',
+                fontSizeMap: { 6: 160, 7: 140, 8: 120, 9: 100, 10: 90, 11: 80, 12: 70 }, // for example: <= 7 characters, 160px font size. 8 characters: 120, >=9 characters: 100
+                x: 600,
+                y: 510,
+                color: '#FF190F',
+                strokeWidth: 13,
+                strokeColor: '#FFFFFF',
+                textAlign: 'center' // 'left', 'center', 'right'
+            }
+        ];
+
+        let currentTemplate = 0;
+        let templateImage = null;
+        let fontLoaded = false;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const amountInput = document.getElementById('amountInput');
+        const templateSelect = document.getElementById('templateSelect');
+        const saveButton = document.getElementById('saveButton');
+
+        // Format number as "$ 1,234"
+        function formatAmount(amount) {
+            const num = parseInt(amount) || 0;
+            return '$ ' + num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        }
+
+        // Get font size based on character length
+        function getFontSize(fontSizeMap, textLength) {
+            const lengths = Object.keys(fontSizeMap).map(Number).sort((a, b) => a - b);
+
+            // Find the appropriate size based on length
+            for (let i = 0; i < lengths.length; i++) {
+                if (textLength <= lengths[i]) {
+                    return fontSizeMap[lengths[i]];
+                }
+            }
+
+            // If text is longer than all defined lengths, use the largest length's size
+            return fontSizeMap[lengths[lengths.length - 1]];
+        }
+
+        // Load font
+        async function loadFont(fontPath, fontName) {
+            const font = new FontFace(fontName, `url(${fontPath})`);
+            try {
+                await font.load();
+                document.fonts.add(font);
+                return true;
+            } catch (error) {
+                console.error('Error loading font:', error);
+                return false;
+            }
+        }
+
+        // Load template image
+        function loadTemplateImage(imagePath) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = imagePath;
+            });
+        }
+
+        // Render the canvas
+        async function render() {
+            const template = templates[currentTemplate];
+
+            // Load template image if needed
+            if (!templateImage) {
+                try {
+                    templateImage = await loadTemplateImage(template.image);
+                    canvas.width = templateImage.width;
+                    canvas.height = templateImage.height;
+                } catch (error) {
+                    console.error('Error loading image:', error);
+                    return;
+                }
+            }
+
+            // Load font if needed
+            if (!fontLoaded) {
+                fontLoaded = await loadFont(template.font, 'CustomFont');
+            }
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw template image
+            ctx.drawImage(templateImage, 0, 0);
+
+            // Get formatted amount
+            const formattedAmount = formatAmount(amountInput.value);
+
+            // Calculate font size based on text length
+            const fontSize = getFontSize(template.fontSizeMap, formattedAmount.length);
+
+            // Set text properties
+            ctx.font = `${fontSize}px CustomFont, Arial, sans-serif`;
+            ctx.textAlign = template.textAlign;
+            ctx.textBaseline = 'middle';
+
+            // Draw text stroke
+            if (template.strokeWidth > 0) {
+                ctx.strokeStyle = template.strokeColor;
+                ctx.lineWidth = template.strokeWidth;
+                ctx.strokeText(formattedAmount, template.x, template.y);
+            }
+
+            // Draw text fill
+            ctx.fillStyle = template.color;
+            ctx.fillText(formattedAmount, template.x, template.y);
+        }
+
+        // Switch template
+        async function switchTemplate(index) {
+            currentTemplate = index;
+            templateImage = null;
+            fontLoaded = false;
+            await render();
+        }
+
+        // Save canvas as JPEG
+        function saveImage() {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'generated-image.jpg';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.97);
+        }
+
+        // Initialize template select
+        function initializeTemplateSelect() {
+            if (templates.length > 1) {
+                templateSelect.classList.remove('hidden');
+                templates.forEach((template, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = template.name;
+                    templateSelect.appendChild(option);
+                });
+                templateSelect.addEventListener('change', (e) => {
+                    switchTemplate(parseInt(e.target.value));
+                });
+            }
+        }
+
+        // Event listeners
+        amountInput.addEventListener('input', render);
+        saveButton.addEventListener('click', saveImage);
+
+        // Initialize
+        initializeTemplateSelect();
+        render();
+    </script>
+</body>
+</html>
