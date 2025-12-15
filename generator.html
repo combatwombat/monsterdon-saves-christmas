@@ -227,7 +227,8 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'generated-image.jpg';
+                const amount = amountInput.value || '0';
+                a.download = 'monsterdon-saves-christmas-' + amount + '.jpg';
                 a.click();
                 URL.revokeObjectURL(url);
             }, 'image/jpeg', 0.97);
