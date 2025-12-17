@@ -81,7 +81,7 @@
 <main>
     <canvas id="canvas"></canvas>
     <div class="controls">
-        <input type="number" id="amountInput" placeholder="Enter amount" value="1234">
+        <input type="text" id="amountInput" placeholder="Enter amount" value="1234">
         <select id="templateSelect" class="hidden"></select>
         <button id="saveButton">Save as JPEG</button>
     </div>
@@ -119,11 +119,26 @@
         const templateSelect = document.getElementById('templateSelect');
         const saveButton = document.getElementById('saveButton');
 
-        // Format number as "$ 1,234"
+        // Format number as "$1,234.12"
         function formatAmount(amount) {
-            const num = parseInt(amount) || 0;
-            return '$ ' + num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            // Parse the input as a float
+            const num = parseFloat(amount);
+
+            // Return empty if invalid
+            if (isNaN(num)) {
+                return '$0';
+            }
+
+            // Check if there are decimals in the original input
+            const hasDecimals = amount.includes('.') && amount.split('.')[1].length > 0;
+
+            // Format with decimals if they exist, otherwise without
+            return '$' + num.toLocaleString('en-US', {
+                minimumFractionDigits: hasDecimals ? 2 : 0,
+                maximumFractionDigits: 2
+            });
         }
+
 
         // Get font size based on character length
         function getFontSize(fontSizeMap, textLength) {
